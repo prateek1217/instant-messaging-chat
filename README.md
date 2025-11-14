@@ -12,6 +12,11 @@ A complete messaging application for customer service agents to respond to incom
 - **Canned Messages**: Quick response templates for common inquiries
 - **Message Management**: View, read, and reply to customer messages
 
+<img width="689" height="442" alt="Screenshot 2025-11-15 at 1 26 52 AM" src="https://github.com/user-attachments/assets/5448c0b2-069d-4995-85cd-2baf0504444b" />
+
+<img width="287" height="640" alt="Screenshot 2025-11-15 at 1 28 56 AM" src="https://github.com/user-attachments/assets/c49d725a-0eb5-4257-88c9-aee6e0d382f5" />
+
+
 ## Setup Instructions
 
 ### 1. Install Dependencies
