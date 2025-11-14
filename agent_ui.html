@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Portal - Messaging App</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            display: flex;
+        }
+
+        .sidebar {
+            width: 350px;
+            background: white;
+            border-right: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .sidebar-header h1 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .filter-tabs {
+            display: flex;
+            padding: 15px 20px;
+            gap: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .filter-tab {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .filter-tab.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .message-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .message-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .message-item:hover {
+            background: #f8f9fa;
+        }
+
+        .message-item.active {
+            background: #e3f2fd;
+            border-left: 3px solid #007bff;
+        }
+
+        .message-item.unread {
+            background: #fff3cd;
+        }
+
+        .message-item.high-priority {
+            border-left: 3px solid #dc3545;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 8px;
+        }
+
+        .message-customer {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .message-time {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .message-preview {
+            font-size: 13px;
+            color: #666;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-bottom: 5px;
+        }
+
+        .message-badges {
+            display: flex;
+            gap: 5px;
+        }
+
+        .badge {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .badge.priority-high {
+            background: #dc3545;
+            color: white;
+        }
+
+        .badge.priority-medium {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .badge.unread {
+            background: #007bff;
+            color: white;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+
+        .message-detail {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .message-detail-header {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            background: #f8f9fa;
+        }
+
+        .customer-info {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .customer-info h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .info-row {
+            display: flex;
+            padding: 5px 0;
+            font-size: 13px;
+        }
+
+        .info-label {
+            font-weight: 600;
+            width: 100px;
+            color: #666;
+        }
+
+        .conversation {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .message-bubble {
+            margin-bottom: 15px;
+            max-width: 70%;
+        }
+
+        .message-bubble.incoming {
+            margin-right: auto;
+        }
+
+        .message-bubble.outgoing {
+            margin-left: auto;
+        }
+
+        .bubble-content {
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .message-bubble.incoming .bubble-content {
+            background: white;
+            border: 1px solid #e0e0e0;
+        }
+
+        .message-bubble.outgoing .bubble-content {
+            background: #007bff;
+            color: white;
+        }
+
+        .bubble-meta {
+            font-size: 11px;
+            color: #666;
+            margin-top: 5px;
+            padding: 0 4px;
+        }
+
+        .reply-section {
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            background: white;
+        }
+
+        .canned-messages {
+            margin-bottom: 15px;
+        }
+
+        .canned-select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .reply-input {
+            width: 100%;
+            min-height: 100px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            margin-bottom: 10px;
+        }
+
+        .reply-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .empty-state {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 16px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .status-indicator.connected {
+            background: #28a745;
+        }
+
+        .status-indicator.disconnected {
+            background: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>Agent Portal</h1>
+            <div style="font-size: 12px; color: #666; margin-bottom: 10px;">
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">Connecting...</span>
+            </div>
+            <input type="text" class="search-box" id="searchBox" placeholder="Search messages or customers...">
+        </div>
+        <div class="filter-tabs">
+            <div class="filter-tab active" data-filter="all">All</div>
+            <div class="filter-tab" data-filter="unread">Unread</div>
+            <div class="filter-tab" data-filter="high-priority">Urgent</div>
+        </div>
+        <div class="message-list" id="messageList">
+            <!-- Messages will be loaded here -->
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="message-detail" id="messageDetail">
+            <div class="empty-state">
+                Select a message to view details
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin + '/api';
+        let socket;
+        let currentMessageId = null;
+        let currentFilter = 'all';
+        let searchQuery = '';
+
+        // Initialize WebSocket connection
+        function initSocket() {
+            socket = io(window.location.origin);
+            
+            socket.on('connect', () => {
+                document.getElementById('statusIndicator').className = 'status-indicator connected';
+                document.getElementById('statusText').textContent = 'Connected';
+            });
+
+            socket.on('disconnect', () => {
+                document.getElementById('statusIndicator').className = 'status-indicator disconnected';
+                document.getElementById('statusText').textContent = 'Disconnected';
+            });
+
+            socket.on('new_message', (data) => {
+                loadMessages();
+                if (data.id === currentMessageId) {
+                    loadMessageDetail(currentMessageId);
+                }
+            });
+
+            socket.on('new_reply', (data) => {
+                if (data.message_id === currentMessageId) {
+                    loadMessageDetail(currentMessageId);
+                }
+            });
+        }
+
+        // Load messages
+        async function loadMessages() {
+            try {
+                let url = `${API_BASE}/messages?`;
+                if (currentFilter === 'unread') {
+                    url += 'status=unread&';
+                } else if (currentFilter === 'high-priority') {
+                    url += 'priority=3&';
+                }
+                if (searchQuery) {
+                    url += `search=${encodeURIComponent(searchQuery)}&`;
+                }
+
+                const response = await fetch(url);
+                const messages = await response.json();
+                
+                const messageList = document.getElementById('messageList');
+                messageList.innerHTML = '';
+
+                if (messages.length === 0) {
+                    messageList.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">No messages found</div>';
+                    return;
+                }
+
+                messages.forEach(msg => {
+                    const item = document.createElement('div');
+                    item.className = 'message-item';
+                    if (msg.status === 'unread') item.classList.add('unread');
+                    if (msg.priority >= 3) item.classList.add('high-priority');
+                    if (msg.id === currentMessageId) item.classList.add('active');
+
+                    const time = new Date(msg.created_at).toLocaleString();
+                    const preview = msg.content.substring(0, 60) + (msg.content.length > 60 ? '...' : '');
+
+                    item.innerHTML = `
+                        <div class="message-header">
+                            <div class="message-customer">${msg.customer_name}</div>
+                            <div class="message-time">${time}</div>
+                        </div>
+                        <div class="message-preview">${preview}</div>
+                        <div class="message-badges">
+                            ${msg.status === 'unread' ? '<span class="badge unread">Unread</span>' : ''}
+                            ${msg.priority >= 3 ? '<span class="badge priority-high">Urgent</span>' : 
+                              msg.priority >= 2 ? '<span class="badge priority-medium">Medium</span>' : ''}
+                        </div>
+                    `;
+
+                    item.addEventListener('click', () => {
+                        currentMessageId = msg.id;
+                        loadMessageDetail(msg.id);
+                        markAsRead(msg.id);
+                        loadMessages(); // Refresh to update unread status
+                    });
+
+                    messageList.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Error loading messages:', error);
+            }
+        }
+
+        // Load message detail
+        async function loadMessageDetail(messageId) {
+            try {
+                const response = await fetch(`${API_BASE}/messages/${messageId}`);
+                const data = await response.json();
+
+                const detailDiv = document.getElementById('messageDetail');
+                const customer = data.customer;
+                const conversation = data.conversation;
+
+                let customerInfoHtml = '';
+                if (customer) {
+                    const profileData = customer.profile_data || {};
+                    customerInfoHtml = `
+                        <div class="customer-info">
+                            <h3>Customer Information</h3>
+                            <div class="info-row">
+                                <span class="info-label">Name:</span>
+                                <span>${customer.name}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Email:</span>
+                                <span>${customer.email}</span>
+                            </div>
+                            ${customer.phone ? `
+                            <div class="info-row">
+                                <span class="info-label">Phone:</span>
+                                <span>${customer.phone}</span>
+                            </div>
+                            ` : ''}
+                            <div class="info-row">
+                                <span class="info-label">Customer ID:</span>
+                                <span>${customer.customer_id}</span>
+                            </div>
+                            ${profileData.account_type ? `
+                            <div class="info-row">
+                                <span class="info-label">Account Type:</span>
+                                <span>${profileData.account_type}</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
+
+                let conversationHtml = '<div class="conversation">';
+                conversation.forEach(msg => {
+                    const time = new Date(msg.created_at).toLocaleString();
+                    conversationHtml += `
+                        <div class="message-bubble ${msg.direction}">
+                            <div class="bubble-content">${msg.content}</div>
+                            <div class="bubble-meta">
+                                ${msg.direction === 'outgoing' ? msg.agent_name + ' • ' : ''}${time}
+                            </div>
+                        </div>
+                    `;
+                });
+                conversationHtml += '</div>';
+
+                // Load canned messages
+                const cannedResponse = await fetch(`${API_BASE}/canned-messages`);
+                const cannedMessages = await cannedResponse.json();
+
+                let cannedOptions = '<option value="">Select a canned message...</option>';
+                cannedMessages.forEach(msg => {
+                    cannedOptions += `<option value="${msg.id}">${msg.title}</option>`;
+                });
+
+                detailDiv.innerHTML = `
+                    <div class="message-detail-header">
+                        <h2>Conversation with ${customer ? customer.name : 'Customer'}</h2>
+                        ${customerInfoHtml}
+                    </div>
+                    ${conversationHtml}
+                    <div class="reply-section">
+                        <div class="canned-messages">
+                            <select class="canned-select" id="cannedSelect">
+                                ${cannedOptions}
+                            </select>
+                        </div>
+                        <textarea class="reply-input" id="replyInput" placeholder="Type your reply..."></textarea>
+                        <div class="reply-actions">
+                            <div></div>
+                            <button class="btn btn-primary" onclick="sendReply()">Send Reply</button>
+                        </div>
+                    </div>
+                `;
+
+                // Handle canned message selection
+                document.getElementById('cannedSelect').addEventListener('change', (e) => {
+                    const selectedId = e.target.value;
+                    if (selectedId) {
+                        const canned = cannedMessages.find(m => m.id == selectedId);
+                        if (canned) {
+                            document.getElementById('replyInput').value = canned.content;
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading message detail:', error);
+            }
+        }
+
+        // Send reply
+        async function sendReply() {
+            const content = document.getElementById('replyInput').value.trim();
+            if (!content || !currentMessageId) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/messages/${currentMessageId}/reply`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        agent_id: 1,
+                        agent_name: 'Agent'
+                    })
+                });
+
+                if (response.ok) {
+                    document.getElementById('replyInput').value = '';
+                    document.getElementById('cannedSelect').value = '';
+                    loadMessageDetail(currentMessageId);
+                    loadMessages();
+                }
+            } catch (error) {
+                console.error('Error sending reply:', error);
+                alert('Failed to send reply. Please try again.');
+            }
+        }
+
+        // Mark as read
+        async function markAsRead(messageId) {
+            try {
+                await fetch(`${API_BASE}/messages/${messageId}/read`, {
+                    method: 'POST'
+                });
+            } catch (error) {
+                console.error('Error marking as read:', error);
+            }
+        }
+
+        // Filter tabs
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentFilter = tab.dataset.filter;
+                loadMessages();
+            });
+        });
+
+        // Search
+        let searchTimeout;
+        document.getElementById('searchBox').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                searchQuery = e.target.value;
+                loadMessages();
+            }, 300);
+        });
+
+        // Initialize
+        initSocket();
+        loadMessages();
+
+        // Auto-refresh every 30 seconds as fallback
+        setInterval(loadMessages, 30000);
+    </script>
+</body>
+</html>
+
